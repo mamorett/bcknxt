@@ -93,7 +93,7 @@ func main() {
 			resolvedPath = absPath
 		}
 
-		if err := runSingleDirUpload(resolvedPath, prof.Dest, prof.Tmp); err != nil {
+		if err := runSingleDirUpload(resolvedPath, prof.Dest, prof.Tmp, *phase); err != nil {
 			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)

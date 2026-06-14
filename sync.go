@@ -336,7 +336,7 @@ func runPhase3(tmpDir string) error {
 	return nil
 }
 
-func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
+func runSingleDirUpload(dirPath, destPath, tmpDir, phase string) error {
 	logHeader("SINGLE DIRECTORY UPLOAD")
 
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
@@ -348,63 +348,191 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
 	sourceDir := filepath.Dir(dirPath)
 	archivePath := filepath.Join(tmpDir, folderName+".tgz")
 
-	logPrint(fmt.Sprintf("Resolving destination: %s%s%s", colorCyan, destPath, colorReset))
-	destID, err := resolvePathToID(destPath)
-	if err != nil {
-		return fmt.Errorf("resolve destination: %w", err)
-	}
-	logPrint(fmt.Sprintf("  Destination ID: %s%s%s", colorCyan, destID, colorReset))
+	// Phase 1: Discovery
+	if phase == "1" || phase == "all" {
+		logPrint(fmt.Sprintf("Resolving destination: %s%s%s", colorCyan, destPath, colorReset))
+		destID, err := resolvePathToID(destPath)
+		if err != nil {
+			return fmt.Errorf("resolve destination: %w", err)
+		}
+		logPrint(fmt.Sprintf("  Destination ID: %s%s%s", colorCyan, destID, colorReset))
+		writeString(filepath.Join(tmpDir, "destination_id.txt"), destID)
 
-	logPrint(fmt.Sprintf("Source directory: %s", dirPath))
-	logPrint(fmt.Sprintf("Archive path: %s", archivePath))
+		logPrint("Checking remote backups...")
+		contents, err := listFolderContents(destID)
+		if err != nil {
+			return fmt.Errorf("list destination: %w", err)
+		}
 
-	sz := folderSize(dirPath)
-	infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
-	detailPrint("Starting archive creation...")
-
-	logPrint(fmt.Sprintf("  %s[1/2] Creating tar archive...%s", colorYellow, colorReset))
-	detailPrint(fmt.Sprintf("Archiving %s", dirPath))
-	if err := createTgz(archivePath, sourceDir, folderName); err != nil {
-		return fmt.Errorf("tar failed: %w", err)
-	}
-	detailPrint("Archive created successfully")
-
-	stat, _ := os.Stat(archivePath)
-	infoPrint(fmt.Sprintf("Archive size: %s", formatSize(stat.Size())))
-
-	logPrint(fmt.Sprintf("  %s[2/2] Uploading to Internxt...%s", colorYellow, colorReset))
-	detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
-
-	var uploadErr error
-	for attempt := 0; attempt < 2; attempt++ {
-		detailPrint(fmt.Sprintf("Upload attempt #%d", attempt+1))
-		uploadStart := time.Now()
-		uploadErr = uploadFile(archivePath, destID)
-		elapsed := time.Since(uploadStart)
-
-		if uploadErr != nil {
-			detailPrint(fmt.Sprintf("Upload failed (attempt %d): %v", attempt+1, uploadErr))
-			if attempt == 0 {
-				detailPrint("Waiting 5 seconds before retry...")
-				time.Sleep(5 * time.Second)
+		existsRemotely := false
+		targetFilename := folderName + ".tgz"
+		for _, item := range contents {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			name := ""
+			if v, ok := m["plainName"]; ok {
+				name, _ = v.(string)
+			}
+			if name == "" {
+				if v, ok := m["name"]; ok {
+					name, _ = v.(string)
+				}
+			}
+			if strings.EqualFold(name, targetFilename) || strings.EqualFold(name, folderName) {
+				existsRemotely = true
+				break
+			}
+		}
+
+		logDivider()
+		if existsRemotely {
+			logPrint(colorGreen + "Status: Already uploaded (exists on remote)" + colorReset)
 		} else {
-			detailPrint(fmt.Sprintf("Upload completed successfully in %.1fs", elapsed.Seconds()))
-			break
+			sz := folderSize(dirPath)
+			logPrint(fmt.Sprintf("%sTO UPLOAD:%s %s%s%s (%s)", colorYellow+colorBold, colorReset, colorCyan, folderName, colorReset, formatSize(sz)))
+		}
+		logDivider()
+
+		writeStatus("1", "discovered", fmt.Sprintf("Checked %s", folderName),
+			map[string]interface{}{"dir": folderName, "exists_remotely": existsRemotely}, tmpDir)
+
+		if phase == "1" {
+			return nil
 		}
 	}
-	if uploadErr != nil {
-		return fmt.Errorf("upload failed after all retries: %w", uploadErr)
+
+	// Phase 2: Archive & Upload
+	if phase == "2" || phase == "all" {
+		destIDPath := filepath.Join(tmpDir, "destination_id.txt")
+		var destID string
+		if _, err := os.Stat(destIDPath); err == nil {
+			destID = readString(destIDPath)
+		} else {
+			var err error
+			destID, err = resolvePathToID(destPath)
+			if err != nil {
+				return fmt.Errorf("resolve destination: %w", err)
+			}
+			writeString(destIDPath, destID)
+		}
+
+		sz := folderSize(dirPath)
+		infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
+		detailPrint("Starting archive creation...")
+
+		logPrint(fmt.Sprintf("  %s[1/2] Creating tar archive...%s", colorYellow, colorReset))
+		detailPrint(fmt.Sprintf("Archiving %s", dirPath))
+		if err := createTgz(archivePath, sourceDir, folderName); err != nil {
+			return fmt.Errorf("tar failed: %w", err)
+		}
+		detailPrint("Archive created successfully")
+
+		stat, _ := os.Stat(archivePath)
+		infoPrint(fmt.Sprintf("Archive size: %s", formatSize(stat.Size())))
+
+		writeStatus("2", "processing", fmt.Sprintf("Uploading %s", folderName),
+			map[string]interface{}{"dir": folderName, "size": formatSize(sz)}, tmpDir)
+
+		logPrint(fmt.Sprintf("  %s[2/2] Uploading to Internxt...%s", colorYellow, colorReset))
+		detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
+
+		var uploadErr error
+		for attempt := 0; attempt < 2; attempt++ {
+			detailPrint(fmt.Sprintf("Upload attempt #%d", attempt+1))
+			uploadStart := time.Now()
+			uploadErr = uploadFile(archivePath, destID)
+			elapsed := time.Since(uploadStart)
+
+			if uploadErr != nil {
+				detailPrint(fmt.Sprintf("Upload failed (attempt %d): %v", attempt+1, uploadErr))
+				if attempt == 0 {
+					detailPrint("Waiting 5 seconds before retry...")
+					time.Sleep(5 * time.Second)
+				}
+			} else {
+				detailPrint(fmt.Sprintf("Upload completed successfully in %.1fs", elapsed.Seconds()))
+				break
+			}
+		}
+		if uploadErr != nil {
+			return fmt.Errorf("upload failed after all retries: %w", uploadErr)
+		}
+
+		logPrint(fmt.Sprintf("  %sCleaning up temporary archive...%s", colorYellow, colorReset))
+		detailPrint("Removing: " + archivePath)
+		os.Remove(archivePath)
+		detailPrint("Cleanup complete")
+
+		writeStatus("2", "completed", fmt.Sprintf("Uploaded %s", folderName),
+			map[string]interface{}{"dir": folderName}, tmpDir)
+
+		if phase == "2" {
+			logDivider()
+			logPrint(colorGreen + colorBold + "UPLOAD COMPLETE" + colorReset)
+			logDivider()
+			return nil
+		}
 	}
 
-	logPrint(fmt.Sprintf("  %sCleaning up temporary archive...%s", colorYellow, colorReset))
-	detailPrint("Removing: " + archivePath)
-	os.Remove(archivePath)
-	detailPrint("Cleanup complete")
+	// Phase 3: Verification
+	if phase == "3" || phase == "all" {
+		destIDPath := filepath.Join(tmpDir, "destination_id.txt")
+		var destID string
+		if _, err := os.Stat(destIDPath); err == nil {
+			destID = readString(destIDPath)
+		} else {
+			var err error
+			destID, err = resolvePathToID(destPath)
+			if err != nil {
+				return fmt.Errorf("resolve destination: %w", err)
+			}
+		}
 
-	logDivider()
-	logPrint(colorGreen + colorBold + "UPLOAD COMPLETE" + colorReset)
-	logDivider()
+		logPrint("Verifying upload...")
+		contents, err := listFolderContents(destID)
+		if err != nil {
+			return fmt.Errorf("list destination for verification: %w", err)
+		}
+
+		existsRemotely := false
+		targetFilename := folderName + ".tgz"
+		for _, item := range contents {
+			m, ok := item.(map[string]interface{})
+			if !ok {
+				continue
+			}
+			name := ""
+			if v, ok := m["plainName"]; ok {
+				name, _ = v.(string)
+			}
+			if name == "" {
+				if v, ok := m["name"]; ok {
+					name, _ = v.(string)
+				}
+			}
+			if strings.EqualFold(name, targetFilename) || strings.EqualFold(name, folderName) {
+				existsRemotely = true
+				break
+			}
+		}
+
+		logDivider()
+		if existsRemotely {
+			logPrint(colorGreen + colorBold + "UPLOAD COMPLETE & VERIFIED" + colorReset)
+			logDivider()
+			writeStatus("3", "verified", fmt.Sprintf("Verified %s", folderName),
+				map[string]interface{}{"dir": folderName}, tmpDir)
+		} else {
+			logPrint(colorRed + colorBold + "VERIFICATION FAILED: File not found on remote" + colorReset)
+			logDivider()
+			writeStatus("3", "failed", fmt.Sprintf("Verification failed for %s", folderName),
+				map[string]interface{}{"dir": folderName}, tmpDir)
+			return fmt.Errorf("verification failed: uploaded file not found on remote")
+		}
+	}
+
 	return nil
 }
 
