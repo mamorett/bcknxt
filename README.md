@@ -74,10 +74,10 @@ Create a `config.json` file in your working directory. You can define multiple i
 ```json
 {
   "profiles": {
-    "dgxcomfy_p2": {
-      "source": "/wdblack/ARS/dgxcomfy",
-      "dest": "bck/dgxcomfy_p2",
-      "tmp": "/wdblack/tmp"
+    "example_profile": {
+      "source": "/data/backups",
+      "dest": "bck/my_backups",
+      "tmp": "/tmp/bcknxt"
     },
     "another_backup": {
       "source": "/data/my_project",
@@ -224,29 +224,29 @@ When running a full synchronization (`--phase all`), the tool runs three sequent
 ## 💡 Usage Examples
 
 ```bash
-# Perform a full sync of the "dgxcomfy_p2" profile
-bcknxt --profile dgxcomfy_p2
+# Perform a full sync of the "example_profile" profile
+bcknxt --profile example_profile
 
 # Sync only folders from 2026-06-01 onwards
-bcknxt --profile dgxcomfy_p2 --from-date 2026-06-01
+bcknxt --profile example_profile --from-date 2026-06-01
 
 # Sync only the first 3 missing folders
-bcknxt --profile dgxcomfy_p2 --limit 3
+bcknxt --profile example_profile --limit 3
 
 # Run only discovery (Phase 1)
-bcknxt --profile dgxcomfy_p2 --phase 1
+bcknxt --profile example_profile --phase 1
 
 # Run only archive & upload (Phase 2)
-bcknxt --profile dgxcomfy_p2 --phase 2
+bcknxt --profile example_profile --phase 2
 
 # Run only verification (Phase 3)
-bcknxt --profile dgxcomfy_p2 --phase 3
+bcknxt --profile example_profile --phase 3
 
 # Specify a custom config file path
-bcknxt --config /etc/bcknxt/config.json --profile dgxcomfy_p2
+bcknxt --config /etc/bcknxt/config.json --profile example_profile
 
 # Upload a specific directory directly, bypassing discovery
-bcknxt --profile dgxcomfy_p2 --dir /wdblack/ARS/dgxcomfy/2026-06-14
+bcknxt --profile example_profile --dir /data/backups/2026-06-14
 
 # Run with the default profile
 bcknxt

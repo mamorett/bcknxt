@@ -20,9 +20,9 @@ type Config struct {
 
 // Default paths (used when config has no matching profile).
 const (
-	DefaultSource = "/wdblack/ARS/dgxcomfy"
-	DefaultDest   = "bck/dgxcomfy_p2"
-	DefaultTmp    = "/wdblack/tmp"
+	DefaultSource = "/data/backups"
+	DefaultDest   = "bck/default"
+	DefaultTmp    = "/tmp/bcknxt"
 )
 
 func loadConfig(path string) (*Config, error) {
