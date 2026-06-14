@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -78,7 +79,21 @@ func main() {
 	}
 
 	if *dirPath != "" {
-		if err := runSingleDirUpload(*dirPath, prof.Dest, prof.Tmp); err != nil {
+		resolvedPath := filepath.Clean(*dirPath)
+		// If the path doesn't exist as-is, check relative to the profile's source directory
+		if _, err := os.Stat(resolvedPath); os.IsNotExist(err) {
+			testPath := filepath.Join(prof.Source, *dirPath)
+			if _, errSub := os.Stat(testPath); errSub == nil {
+				resolvedPath = testPath
+			}
+		}
+
+		// Ensure we resolve to an absolute path so that Base and Dir are parsed cleanly
+		if absPath, err := filepath.Abs(resolvedPath); err == nil {
+			resolvedPath = absPath
+		}
+
+		if err := runSingleDirUpload(resolvedPath, prof.Dest, prof.Tmp); err != nil {
 			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)
