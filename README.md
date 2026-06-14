@@ -55,16 +55,7 @@ With support for **profiles** in a single configuration file, you can manage mul
 
 ## 📦 Installation
 
-### Pre-built Binaries
-
-If a pre-built binary is provided for your platform:
-
-```bash
-chmod +x bcknxt-<platform>
-./bcknxt-<platform> --profile dgxcomfy_p2
-```
-
-### Building from Source
+To build `bcknxt` from source:
 
 ```bash
 git clone <repo> && cd bcknxt
@@ -72,7 +63,7 @@ make build-all
 # Binaries are compiled and placed in bin/
 ```
 
-Add the `bin/` directory to your `PATH` or copy the platform-specific binary to a directory in your `PATH`.
+Add the compiled binary for your platform to your `PATH` or copy it to a directory in your `PATH`.
 
 ---
 
