@@ -344,6 +344,80 @@ func runPhase3(tmpDir string) error {
 	return nil
 }
 
+func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
+	logPrint("=" + strings.Repeat("=", 59))
+	logPrint("SINGLE DIRECTORY UPLOAD")
+	logPrint("=" + strings.Repeat("=", 59))
+
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		return fmt.Errorf("directory %s not found", dirPath)
+	}
+	os.MkdirAll(tmpDir, 0755)
+
+	folderName := filepath.Base(dirPath)
+	sourceDir := filepath.Dir(dirPath)
+	archivePath := filepath.Join(tmpDir, folderName+".tgz")
+
+	logPrint("Resolving destination: " + destPath)
+	destID, err := resolvePathToID(destPath)
+	if err != nil {
+		return fmt.Errorf("resolve destination: %w", err)
+	}
+	logPrint("  Destination ID: " + destID)
+
+	logPrint(fmt.Sprintf("Source directory: %s", dirPath))
+	logPrint(fmt.Sprintf("Archive path: %s", archivePath))
+
+	sz := folderSize(dirPath)
+	infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
+	detailPrint("Starting archive creation...")
+
+	logPrint("  [1/2] Creating tar archive...")
+	detailPrint(fmt.Sprintf("Archiving %s", dirPath))
+	if err := createTgz(archivePath, sourceDir, folderName); err != nil {
+		return fmt.Errorf("tar failed: %w", err)
+	}
+	detailPrint("Archive created successfully")
+
+	stat, _ := os.Stat(archivePath)
+	infoPrint(fmt.Sprintf("Archive size: %s", formatSize(stat.Size())))
+
+	logPrint("  [2/2] Uploading to Internxt...")
+	detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
+
+	var uploadErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		detailPrint(fmt.Sprintf("Upload attempt #%d", attempt+1))
+		uploadStart := time.Now()
+		uploadErr = uploadFile(archivePath, destID)
+		elapsed := time.Since(uploadStart)
+
+		if uploadErr != nil {
+			detailPrint(fmt.Sprintf("Upload failed (attempt %d): %v", attempt+1, uploadErr))
+			if attempt == 0 {
+				detailPrint("Waiting 5 seconds before retry...")
+				time.Sleep(5 * time.Second)
+			}
+		} else {
+			detailPrint(fmt.Sprintf("Upload completed successfully in %.1fs", elapsed.Seconds()))
+			break
+		}
+	}
+	if uploadErr != nil {
+		return fmt.Errorf("upload failed after all retries: %w", uploadErr)
+	}
+
+	logPrint("  Cleaning up temporary archive...")
+	detailPrint("Removing: " + archivePath)
+	os.Remove(archivePath)
+	detailPrint("Cleanup complete")
+
+	logPrint("=" + strings.Repeat("=", 59))
+	logPrint("UPLOAD COMPLETE")
+	logPrint("=" + strings.Repeat("=", 59))
+	return nil
+}
+
 func writeLines(path string, lines []string) {
 	f, err := os.Create(path)
 	if err != nil {

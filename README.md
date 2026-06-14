@@ -10,6 +10,8 @@ A cross-platform Go implementation of `sync.py` for synchronising date-based fol
 - [Installation](#installation)
 - [Configuration](#configuration)
 - [CLI Usage](#cli-usage)
+- [Single Directory Upload (`--dir`)](#single-directory-upload-dir)
+- [Default Profile](#default-profile)
 - [Phases](#phases)
   - [Phase 1: Discovery](#phase-1-discovery)
   - [Phase 2: Archive & Upload](#phase-2-archive--upload)
@@ -93,15 +95,55 @@ By default the tool looks for `config.json` in the current working directory. Ov
 
 ```
 bcknxt --config <path> --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--phase 1|2|3|all]
+bcknxt --config <path> --profile <name> --dir <path>
 ```
 
 | Flag | Required | Default | Description |
 |---|---|---|---|
 | `--config` | no | `config.json` | Path to JSON configuration |
-| `--profile` | **yes** | — | Backup profile name from config |
+| `--profile` | no | `default` (if exists) | Backup profile name from config |
 | `--from-date` | no | — | Only sync folders ≥ this date (inclusive) |
 | `--limit` | no | `0` (no limit) | Maximum number of folders to process |
 | `--phase` | no | `all` | Phase to run: `1`, `2`, `3`, or `all` |
+| `--dir` | no | — | Upload a specific directory directly (bypasses discovery) |
+
+---
+
+## Single Directory Upload (`--dir`)
+
+Use `--dir` to upload a specific directory directly, bypassing the discovery phases entirely. The tool will:
+
+1. Archive the specified directory into a `.tgz` file in the profile's `tmp` directory
+2. Upload the archive to the profile's `dest` path on Internxt
+3. Delete the temporary archive after a successful upload
+
+This is useful for one-off uploads or when you want to back up a folder that is not part of the regular date-based sync.
+
+```bash
+bcknxt --profile myprofile --dir /path/to/specific/folder
+```
+
+The folder name is used as the archive base name (e.g. `/path/to/specific/folder` → `folder.tgz`).
+
+---
+
+## Default Profile
+
+If `--profile` is not specified, the tool will automatically use the `default` profile if one exists in the configuration file. This allows you to run `bcknxt` without any profile flag when a default is defined.
+
+```json
+{
+  "profiles": {
+    "default": {
+      "source": "/data/backup",
+      "dest": "bck/default",
+      "tmp": "/tmp/bcknxt"
+    }
+  }
+}
+```
+
+If no `default` profile exists and `--profile` is omitted, the tool exits with an error.
 
 ---
 
@@ -179,6 +221,12 @@ bcknxt --profile dgxcomfy_p2 --phase 3
 
 # Use a custom config path
 bcknxt --config /etc/bcknxt/config.json --profile dgxcomfy_p2
+
+# Upload a specific directory directly (no discovery)
+bcknxt --profile dgxcomfy_p2 --dir /wdblack/ARS/dgxcomfy/2026-06-14
+
+# Use the default profile (no --profile flag needed)
+bcknxt
 ```
 
 ---
