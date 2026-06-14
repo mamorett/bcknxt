@@ -34,16 +34,42 @@ func extractJSON(out string) (string, error) {
 	return "", fmt.Errorf("no JSON found in output: %.200s", clean)
 }
 
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorBlue   = "\033[34m"
+	colorPurple = "\033[35m"
+	colorCyan   = "\033[36m"
+	colorGray   = "\033[90m"
+	colorBold   = "\033[1m"
+
+	dividerWidth = 60
+)
+
 func logPrint(msg string) {
-	fmt.Printf("[%s] %s\n", time.Now().Format("15:04:05"), msg)
+	fmt.Printf("%s[%s]%s %s\n", colorGray, time.Now().Format("15:04:05"), colorReset, msg)
 }
 
 func infoPrint(msg string) {
-	fmt.Printf("  %s\n", msg)
+	fmt.Printf("  %s%s%s\n", colorGray, msg, colorReset)
 }
 
 func detailPrint(msg string) {
-	fmt.Printf("    %s\n", msg)
+	fmt.Printf("    %s%s%s\n", colorGray, msg, colorReset)
+}
+
+func logDivider() {
+	logPrint(colorGray + strings.Repeat("━", dividerWidth) + colorReset)
+}
+
+func logHeader(lines ...string) {
+	logDivider()
+	for _, line := range lines {
+		logPrint(colorBold + colorCyan + line + colorReset)
+	}
+	logDivider()
 }
 
 func formatSize(bytes int64) string {

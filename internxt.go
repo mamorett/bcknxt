@@ -181,7 +181,7 @@ func uploadFile(localPath, destID string) error {
 func parseRemoteDates(contents []interface{}) []string {
 	var dates []string
 	re := regexp.MustCompile(`^20\d{2}-\d{2}-\d{2}$`)
-	tgzRe := regexp.MustCompile(`^20\d{2}-\d{2}-\d{2}\.tgz$`)
+	tgzRe := regexp.MustCompile(`^(20\d{2}-\d{2}-\d{2})\.tgz$`)
 	seen := map[string]bool{}
 	for _, item := range contents {
 		m, ok := item.(map[string]interface{})

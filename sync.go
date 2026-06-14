@@ -9,28 +9,26 @@ import (
 )
 
 func runPhase1(sourceDir, destPath, tmpDir, fromDate string, limit int) ([]string, error) {
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint("PHASE 1: Discovery")
-	logPrint("=" + strings.Repeat("=", 59))
+	logHeader("PHASE 1: Discovery")
 
 	if _, err := os.Stat(sourceDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("source directory %s not found", sourceDir)
 	}
 	os.MkdirAll(tmpDir, 0755)
 
-	logPrint("Scanning: " + sourceDir)
+	logPrint(fmt.Sprintf("Scanning: %s%s%s", colorCyan, sourceDir, colorReset))
 	localDates := scanLocalDates(sourceDir)
-	logPrint(fmt.Sprintf("  Found %d local folders", len(localDates)))
+	logPrint(fmt.Sprintf("  Found %s%d%s local folders", colorBold, len(localDates), colorReset))
 	if len(localDates) > 0 {
-		logPrint(fmt.Sprintf("  Range: %s - %s", localDates[0], localDates[len(localDates)-1]))
+		logPrint(fmt.Sprintf("  Range: %s%s%s - %s%s%s", colorCyan, localDates[0], colorReset, colorCyan, localDates[len(localDates)-1], colorReset))
 	}
 
-	logPrint("Resolving destination: " + destPath)
+	logPrint(fmt.Sprintf("Resolving destination: %s%s%s", colorCyan, destPath, colorReset))
 	destID, err := resolvePathToID(destPath)
 	if err != nil {
 		return nil, fmt.Errorf("resolve destination: %w", err)
 	}
-	logPrint("  Destination ID: " + destID)
+	logPrint(fmt.Sprintf("  Destination ID: %s%s%s", colorCyan, destID, colorReset))
 
 	logPrint("Fetching remote backups...")
 	contents, err := listFolderContents(destID)
@@ -38,9 +36,9 @@ func runPhase1(sourceDir, destPath, tmpDir, fromDate string, limit int) ([]strin
 		return nil, fmt.Errorf("list destination: %w", err)
 	}
 	remoteDates := parseRemoteDates(contents)
-	logPrint(fmt.Sprintf("  Found %d remote backups", len(remoteDates)))
+	logPrint(fmt.Sprintf("  Found %s%d%s remote backups", colorBold, len(remoteDates), colorReset))
 	if len(remoteDates) > 0 {
-		logPrint("  Latest: " + remoteDates[len(remoteDates)-1])
+		logPrint(fmt.Sprintf("  Latest: %s%s%s", colorCyan, remoteDates[len(remoteDates)-1], colorReset))
 	}
 
 	// Write discovery artifacts
@@ -58,17 +56,17 @@ func runPhase1(sourceDir, destPath, tmpDir, fromDate string, limit int) ([]strin
 	}
 	writeStatus("1", "discovered", fmt.Sprintf("Found %d items", len(missingDates)), extra, tmpDir)
 
-	logPrint("=" + strings.Repeat("=", 59))
+	logDivider()
 	if len(missingDates) > 0 {
-		logPrint(fmt.Sprintf("TO SYNC (%d):", len(missingDates)))
+		logPrint(fmt.Sprintf("%sTO SYNC (%d):%s", colorYellow+colorBold, len(missingDates), colorReset))
 		for _, d := range missingDates {
 			sz := folderSize(filepath.Join(sourceDir, d))
-			logPrint(fmt.Sprintf("  - %s (%s)", d, formatSize(sz)))
+			logPrint(fmt.Sprintf("  - %s%s%s (%s)", colorCyan, d, colorReset, formatSize(sz)))
 		}
 	} else {
-		logPrint("Nothing to sync")
+		logPrint(colorGreen + "Nothing to sync" + colorReset)
 	}
-	logPrint("=" + strings.Repeat("=", 59))
+	logDivider()
 	return missingDates, nil
 }
 
@@ -103,9 +101,7 @@ func determineMissing(localDates, remoteDates []string, fromDate string, limit i
 }
 
 func runPhase2(sourceDir, tmpDir string) error {
-	logPrint("=" + strings.Repeat("=", 79))
-	logPrint("PHASE 2: Archive & Upload - DETAILED PROGRESS")
-	logPrint("=" + strings.Repeat("=", 79))
+	logHeader("PHASE 2: Archive & Upload - DETAILED PROGRESS")
 
 	missingPath := filepath.Join(tmpDir, "missing_dates.txt")
 	destIDPath := filepath.Join(tmpDir, "destination_id.txt")
@@ -122,13 +118,13 @@ func runPhase2(sourceDir, tmpDir string) error {
 
 	total := len(missingDates)
 	if total == 0 {
-		logPrint("Nothing to sync")
+		logPrint(colorGreen + "Nothing to sync" + colorReset)
 		writeStatus("2", "synced", "Nothing to sync", map[string]interface{}{"total_folders": 0}, tmpDir)
 		return nil
 	}
 
-	logPrint("Destination ID: " + destID)
-	logPrint(fmt.Sprintf("Total folders to sync: %d", total))
+	logPrint(fmt.Sprintf("Destination ID: %s%s%s", colorCyan, destID, colorReset))
+	logPrint(fmt.Sprintf("Total folders to sync: %s%d%s", colorBold, total, colorReset))
 	logPrint("")
 	writeStatus("2", "syncing", fmt.Sprintf("Starting %d folders", total),
 		map[string]interface{}{"total_folders": total, "processed_folders": 0}, tmpDir)
@@ -142,9 +138,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 		itemStart := time.Now()
 
 		logPrint("")
-		logPrint("=" + strings.Repeat("=", 79))
-		logPrint(fmt.Sprintf("PROCESSING ITEM [%d/%d]: %s", idx+1, total, date))
-		logPrint("=" + strings.Repeat("=", 79))
+		logHeader(fmt.Sprintf("PROCESSING ITEM [%d/%d]: %s", idx+1, total, date))
 
 		sourcePath := filepath.Join(sourceDir, date)
 		infoPrint("Source path: " + sourcePath)
@@ -155,7 +149,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 			infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
 			detailPrint("Starting archive creation...")
 
-			logPrint("  [1/3] Creating tar archive...")
+			logPrint(fmt.Sprintf("  %s[1/3] Creating tar archive...%s", colorYellow, colorReset))
 			detailPrint(fmt.Sprintf("Archiving %s from %s", date, sourceDir))
 			if err := createTgz(archivePath, sourceDir, date); err != nil {
 				return fmt.Errorf("tar failed: %w", err)
@@ -174,7 +168,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 					"current_size":     formatSize(sz),
 				}, tmpDir)
 
-			logPrint("  [2/3] Uploading to Internxt...")
+			logPrint(fmt.Sprintf("  %s[2/3] Uploading to Internxt...%s", colorYellow, colorReset))
 			detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
 
 			var uploadErr error
@@ -199,7 +193,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 				return fmt.Errorf("upload failed after all retries: %w", uploadErr)
 			}
 
-			logPrint("  [3/3] Cleaning up temporary archive...")
+			logPrint(fmt.Sprintf("  %s[3/3] Cleaning up temporary archive...%s", colorYellow, colorReset))
 			detailPrint("Removing: " + archivePath)
 			os.Remove(archivePath)
 			detailPrint("Cleanup complete")
@@ -210,8 +204,8 @@ func runPhase2(sourceDir, tmpDir string) error {
 
 		if err != nil {
 			logPrint("")
-			logPrint(fmt.Sprintf("✗ ITEM [%d/%d] %s FAILED", idx+1, total, date))
-			logPrint(fmt.Sprintf("  Error: %v", err))
+			logPrint(fmt.Sprintf("%s✗ ITEM [%d/%d] %s FAILED%s", colorRed+colorBold, idx+1, total, date, colorReset))
+			logPrint(fmt.Sprintf("  Error: %s%v%s", colorRed, err, colorReset))
 			logPrint(fmt.Sprintf("  Time elapsed: %.1fs", elapsed.Seconds()))
 			writeStatus("2", "failed",
 				fmt.Sprintf("[%d/%d] %s: Failed", idx+1, total, date),
@@ -236,7 +230,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 					"item_duration":    elapsed.Seconds(),
 				}, tmpDir)
 			logPrint("")
-			logPrint(fmt.Sprintf("✓ ITEM [%d/%d] %s COMPLETED SUCCESSFULLY", idx+1, total, date))
+			logPrint(fmt.Sprintf("%s✓ ITEM [%d/%d] %s COMPLETED SUCCESSFULLY%s", colorGreen+colorBold, idx+1, total, date, colorReset))
 			logPrint(fmt.Sprintf("  Total time: %.1fs", elapsed.Seconds()))
 			logPrint(fmt.Sprintf("  Progress: %d/%d folders processed", processed, total))
 			logPrint("")
@@ -251,17 +245,17 @@ func runPhase2(sourceDir, tmpDir string) error {
 	totalTime := time.Since(totalStart)
 
 	logPrint("")
-	logPrint("=" + strings.Repeat("=", 79))
-	logPrint("PHASE 2 COMPLETE - SUMMARY")
-	logPrint("=" + strings.Repeat("=", 79))
+	logHeader("PHASE 2 COMPLETE - SUMMARY")
 	logPrint(fmt.Sprintf("Total folders processed: %d/%d", processed, total))
-	logPrint(fmt.Sprintf("Successful: %d", processed))
-	logPrint(fmt.Sprintf("Failed: %d", len(failedDates)))
-	logPrint(fmt.Sprintf("Total time: %.1fs (%.1f minutes)", totalTime.Seconds(), totalTime.Minutes()))
+	logPrint(fmt.Sprintf("Successful: %s%d%s", colorGreen, processed, colorReset))
 	if len(failedDates) > 0 {
-		logPrint(fmt.Sprintf("Failed folders: %v", failedDates))
+		logPrint(fmt.Sprintf("Failed: %s%d%s", colorRed+colorBold, len(failedDates), colorReset))
+		logPrint(fmt.Sprintf("Failed folders: %s%v%s", colorRed, failedDates, colorReset))
+	} else {
+		logPrint(fmt.Sprintf("Failed: %d", len(failedDates)))
 	}
-	logPrint("=" + strings.Repeat("=", 79))
+	logPrint(fmt.Sprintf("Total time: %.1fs (%.1f minutes)", totalTime.Seconds(), totalTime.Minutes()))
+	logDivider()
 
 	if len(failedDates) > 0 {
 		writeStatus("2", "failed", fmt.Sprintf("%d failures", len(failedDates)),
@@ -282,9 +276,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 }
 
 func runPhase3(tmpDir string) error {
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint("PHASE 3: Verification")
-	logPrint("=" + strings.Repeat("=", 59))
+	logHeader("PHASE 3: Verification")
 
 	missingPath := filepath.Join(tmpDir, "missing_dates.txt")
 	destIDPath := filepath.Join(tmpDir, "destination_id.txt")
@@ -300,13 +292,13 @@ func runPhase3(tmpDir string) error {
 	destID := readString(destIDPath)
 
 	if len(intendedDates) == 0 {
-		logPrint("Nothing to verify")
+		logPrint(colorGreen + "Nothing to verify" + colorReset)
 		writeStatus("3", "verified", "Nothing to verify",
 			map[string]interface{}{"verified_folders": 0}, tmpDir)
 		return nil
 	}
 
-	logPrint(fmt.Sprintf("Verifying %d uploads...", len(intendedDates)))
+	logPrint(fmt.Sprintf("Verifying %s%d%s uploads...", colorBold, len(intendedDates), colorReset))
 	contents, err := listFolderContents(destID)
 	if err != nil {
 		return fmt.Errorf("list destination for verification: %w", err)
@@ -327,27 +319,25 @@ func runPhase3(tmpDir string) error {
 	if len(failed) > 0 {
 		writeStatus("3", "failed", "Verification failed",
 			map[string]interface{}{"failed_verification": failed}, tmpDir)
-		logPrint("=" + strings.Repeat("=", 59))
-		logPrint("FAILED: Missing on remote:")
+		logDivider()
+		logPrint(colorRed + colorBold + "FAILED: Missing on remote:" + colorReset)
 		for _, d := range failed {
-			logPrint("  - " + d)
+			logPrint(fmt.Sprintf("  - %s%s%s", colorRed, d, colorReset))
 		}
-		logPrint("=" + strings.Repeat("=", 59))
+		logDivider()
 		return fmt.Errorf("verification failed: %d dates missing remotely", len(failed))
 	}
 
 	writeStatus("3", "verified", fmt.Sprintf("Verified %d", len(intendedDates)),
 		map[string]interface{}{"verified_folders": len(intendedDates)}, tmpDir)
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint(fmt.Sprintf("OK: All %d verified", len(intendedDates)))
-	logPrint("=" + strings.Repeat("=", 59))
+	logDivider()
+	logPrint(fmt.Sprintf("%sOK: All %d verified%s", colorGreen+colorBold, len(intendedDates), colorReset))
+	logDivider()
 	return nil
 }
 
 func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint("SINGLE DIRECTORY UPLOAD")
-	logPrint("=" + strings.Repeat("=", 59))
+	logHeader("SINGLE DIRECTORY UPLOAD")
 
 	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 		return fmt.Errorf("directory %s not found", dirPath)
@@ -358,12 +348,12 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
 	sourceDir := filepath.Dir(dirPath)
 	archivePath := filepath.Join(tmpDir, folderName+".tgz")
 
-	logPrint("Resolving destination: " + destPath)
+	logPrint(fmt.Sprintf("Resolving destination: %s%s%s", colorCyan, destPath, colorReset))
 	destID, err := resolvePathToID(destPath)
 	if err != nil {
 		return fmt.Errorf("resolve destination: %w", err)
 	}
-	logPrint("  Destination ID: " + destID)
+	logPrint(fmt.Sprintf("  Destination ID: %s%s%s", colorCyan, destID, colorReset))
 
 	logPrint(fmt.Sprintf("Source directory: %s", dirPath))
 	logPrint(fmt.Sprintf("Archive path: %s", archivePath))
@@ -372,7 +362,7 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
 	infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
 	detailPrint("Starting archive creation...")
 
-	logPrint("  [1/2] Creating tar archive...")
+	logPrint(fmt.Sprintf("  %s[1/2] Creating tar archive...%s", colorYellow, colorReset))
 	detailPrint(fmt.Sprintf("Archiving %s", dirPath))
 	if err := createTgz(archivePath, sourceDir, folderName); err != nil {
 		return fmt.Errorf("tar failed: %w", err)
@@ -382,7 +372,7 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
 	stat, _ := os.Stat(archivePath)
 	infoPrint(fmt.Sprintf("Archive size: %s", formatSize(stat.Size())))
 
-	logPrint("  [2/2] Uploading to Internxt...")
+	logPrint(fmt.Sprintf("  %s[2/2] Uploading to Internxt...%s", colorYellow, colorReset))
 	detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
 
 	var uploadErr error
@@ -407,14 +397,14 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string) error {
 		return fmt.Errorf("upload failed after all retries: %w", uploadErr)
 	}
 
-	logPrint("  Cleaning up temporary archive...")
+	logPrint(fmt.Sprintf("  %sCleaning up temporary archive...%s", colorYellow, colorReset))
 	detailPrint("Removing: " + archivePath)
 	os.Remove(archivePath)
 	detailPrint("Cleanup complete")
 
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint("UPLOAD COMPLETE")
-	logPrint("=" + strings.Repeat("=", 59))
+	logDivider()
+	logPrint(colorGreen + colorBold + "UPLOAD COMPLETE" + colorReset)
+	logDivider()
 	return nil
 }
 

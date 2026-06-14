@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 )
 
@@ -51,26 +50,26 @@ func main() {
 		os.Exit(1)
 	}
 
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint("DGX Synchronization (Go)")
-	logPrint(fmt.Sprintf("Profile: %s", profile))
-	logPrint(fmt.Sprintf("Started: %s", timeNow()))
-	logPrint("=" + strings.Repeat("=", 59))
-	logPrint(fmt.Sprintf("Config: %s", *configPath))
-	logPrint(fmt.Sprintf("  SOURCE: %s", prof.Source))
-	logPrint(fmt.Sprintf("  DEST:   %s", prof.Dest))
-	logPrint(fmt.Sprintf("  TMP:    %s", prof.Tmp))
+	logHeader(
+		"DGX Synchronization (Go)",
+		fmt.Sprintf("Profile: %s", profile),
+		fmt.Sprintf("Started: %s", timeNow()),
+	)
+	logPrint(fmt.Sprintf("Config: %s%s%s", colorCyan, *configPath, colorReset))
+	logPrint(fmt.Sprintf("  %sSOURCE:%s %s", colorBold, colorReset, prof.Source))
+	logPrint(fmt.Sprintf("  %sDEST:%s   %s", colorBold, colorReset, prof.Dest))
+	logPrint(fmt.Sprintf("  %sTMP:%s    %s", colorBold, colorReset, prof.Tmp))
 	logPrint("")
 
 	if !checkAuth() {
 		writeStatus("0", "failed", "Not authenticated", nil, prof.Tmp)
-		logPrint("ERROR: Run 'internxt login -x' first")
+		logPrint(colorRed + "ERROR: Run 'internxt login -x' first" + colorReset)
 		os.Exit(1)
 	}
 
 	if *dirPath != "" {
 		if err := runSingleDirUpload(*dirPath, prof.Dest, prof.Tmp); err != nil {
-			logPrint(fmt.Sprintf("\nERROR: %v", err))
+			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)
 		}
@@ -82,19 +81,19 @@ func main() {
 	case "1", "all":
 		missingDates, err := runPhase1(prof.Source, prof.Dest, prof.Tmp, *fromDate, *limit)
 		if err != nil {
-			logPrint(fmt.Sprintf("\nERROR: %v", err))
+			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)
 		}
 		if phaseStr == "1" {
-			logPrint(fmt.Sprintf("\nPhase 1 Complete: Found %d items to sync.", len(missingDates)))
+			logPrint(fmt.Sprintf("\n%sPhase 1 Complete: Found %d items to sync.%s", colorGreen, len(missingDates), colorReset))
 			return
 		}
 	}
 
 	if phaseStr == "2" || phaseStr == "all" {
 		if err := runPhase2(prof.Source, prof.Tmp); err != nil {
-			logPrint(fmt.Sprintf("\nERROR: %v", err))
+			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)
 		}
@@ -105,15 +104,14 @@ func main() {
 
 	if phaseStr == "3" || phaseStr == "all" {
 		if err := runPhase3(prof.Tmp); err != nil {
-			logPrint(fmt.Sprintf("\nERROR: %v", err))
+			logPrint(fmt.Sprintf("\n%sERROR: %v%s", colorRed+colorBold, err, colorReset))
 			writeStatus("0", "failed", err.Error(), nil, prof.Tmp)
 			os.Exit(1)
 		}
 	}
 
-	logPrint("\n" + "=" + strings.Repeat("=", 59))
-	logPrint("SYNC COMPLETE")
-	logPrint("=" + strings.Repeat("=", 59))
+	logPrint("")
+	logHeader("SYNC COMPLETE")
 }
 
 func timeNow() string {

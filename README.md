@@ -1,41 +1,61 @@
-# bcknxt — Internxt Backup Synchronization Tool (Go)
+# 📂 bcknxt — Internxt Backup Synchronization Tool
 
-A cross-platform Go implementation of `sync.py` for synchronising date-based folders from local storage to Internxt backup. Uses a JSON configuration file with named **profiles** so you can define multiple backup scopes and run them independently.
+[![Go Version](https://img.shields.io/badge/Go-%E2%89%A5%201.21-00ADD8?style=for-the-badge&logo=go)](https://golang.org)
+[![Platform Compatibility](https://img.shields.io/badge/Platform-Cross--Platform-4B32C3?style=for-the-badge)](https://golang.org)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](LICENSE)
+
+A high-performance, cross-platform Go tool to automatically synchronize date-based backup folders from your local storage to Internxt Drive. It packages your folders into compressed `.tgz` archives using Go's native archiver and uploads them securely via the Internxt CLI.
+
+With support for **profiles** in a single configuration file, you can manage multiple independent backup scopes with ease.
 
 ---
 
-## Table of Contents
+## 🧭 Table of Contents
 
-- [Requirements](#requirements)
-- [Installation](#installation)
-- [Configuration](#configuration)
-- [CLI Usage](#cli-usage)
-- [Single Directory Upload (`--dir`)](#single-directory-upload-dir)
-- [Default Profile](#default-profile)
-- [Phases](#phases)
+- [🚀 Key Features](#-key-features)
+- [📋 Requirements](#-requirements)
+- [📦 Installation](#-installation)
+- [⚙️ Configuration](#%EF%B8%8F-configuration)
+- [💻 CLI Usage](#-cli-usage)
+- [📂 Single Directory Upload (`--dir`)](#-single-directory-upload-dir)
+- [👤 Default Profile](#-default-profile)
+- [🔄 Sync Phases](#-sync-phases)
   - [Phase 1: Discovery](#phase-1-discovery)
   - [Phase 2: Archive & Upload](#phase-2-archive--upload)
   - [Phase 3: Verification](#phase-3-verification)
-- [Examples](#examples)
-- [Building from Source](#building-from-source)
-- [Differences from sync.py](#differences-from-syncpy)
-- [Troubleshooting](#troubleshooting)
-- [Status File Format](#status-file-format)
+- [💡 Usage Examples](#-usage-examples)
+- [🛠️ Building from Source](#%EF%B8%8F-building-from-source)
+- [🔍 Troubleshooting](#-troubleshooting)
+- [📊 Status File Format](#-status-file-format)
 
 ---
 
-## Requirements
+## 🚀 Key Features
 
-- **Go** ≥ 1.21 (for building from source)
-- **Internxt CLI** installed and authenticated (`internxt login -x`)
-- Write access to the source, temp, and destination paths
-- `internxt` CLI must be in `PATH`
+* **Native Compression**: Built-in `tar/gzip` archiving (no dependency on external `tar` executables).
+* **Multi-Profile Configurations**: Define multiple backup sources, destinations, and temporary paths.
+* **Smart Synchronization**: Scans and uploads only what is missing on the remote side, starting from a custom date or defaulting to newer than the latest remote backup.
+* **Automatic Retries**: Failed uploads are retried automatically with configured delays.
+* **State & Tracking**: Generates machine-readable `sync_status.json` states after each phase for integrations.
+* **Clean, Styled Output**: Color-coded, aligned console output for clear status tracking.
 
 ---
 
-## Installation
+## 📋 Requirements
 
-### Pre-built binaries
+* **Go** $\ge$ 1.21 (only if building from source)
+* **Internxt CLI** installed and logged in (`internxt login -x`)
+* **Internxt CLI** executable must be in your system's `PATH`
+* Write access to the local source, temporary (`tmp`), and destination paths
+
+> [!IMPORTANT]
+> You must run `internxt login -x` and verify your session with `internxt whoami -x` before running `bcknxt`.
+
+---
+
+## 📦 Installation
+
+### Pre-built Binaries
 
 If a pre-built binary is provided for your platform:
 
@@ -44,21 +64,21 @@ chmod +x bcknxt-<platform>
 ./bcknxt-<platform> --profile dgxcomfy_p2
 ```
 
-### Build from source
+### Building from Source
 
 ```bash
 git clone <repo> && cd bcknxt
 make build-all
-# Binaries are placed in bin/
+# Binaries are compiled and placed in bin/
 ```
 
-Add `bin/` to your `PATH` or copy the binary for your platform.
+Add the `bin/` directory to your `PATH` or copy the platform-specific binary to a directory in your `PATH`.
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
-Create a `config.json` file with one or more backup profiles:
+Create a `config.json` file in your working directory. You can define multiple independent backup profiles:
 
 ```json
 {
@@ -77,59 +97,61 @@ Create a `config.json` file with one or more backup profiles:
 }
 ```
 
-| Field | Description |
-|---|---|
-| `source` | Local directory containing `YYYY-MM-DD` sub-folders |
-| `dest`  | Remote path on Internxt Drive (folders separated by `/`) |
-| `tmp`   | Temporary directory for archive files and status tracking |
+### Profile Fields
 
-All fields are **required** for each profile.
+| Field | Type | Description |
+| :--- | :--- | :--- |
+| `source` | `string` | Local directory containing date-based (`YYYY-MM-DD`) sub-folders. |
+| `dest` | `string` | Remote path on Internxt Drive (folders separated by `/`). |
+| `tmp` | `string` | Temporary directory used for staging archive files and tracking `sync_status.json`. |
 
-### Config location
-
-By default the tool looks for `config.json` in the current working directory. Override with `--config <path>`.
+> [!NOTE]
+> All fields (`source`, `dest`, `tmp`) are **required** for each profile.
+> By default, `bcknxt` looks for `config.json` in the current working directory. You can override this using the `--config <path>` flag.
 
 ---
 
-## CLI Usage
+## 💻 CLI Usage
 
-```
+```bash
 bcknxt --config <path> --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--phase 1|2|3|all]
 bcknxt --config <path> --profile <name> --dir <path>
 ```
 
+### Flags
+
 | Flag | Required | Default | Description |
-|---|---|---|---|
-| `--config` | no | `config.json` | Path to JSON configuration |
-| `--profile` | no | `default` (if exists) | Backup profile name from config |
-| `--from-date` | no | — | Only sync folders ≥ this date (inclusive) |
-| `--limit` | no | `0` (no limit) | Maximum number of folders to process |
-| `--phase` | no | `all` | Phase to run: `1`, `2`, `3`, or `all` |
-| `--dir` | no | — | Upload a specific directory directly (bypasses discovery) |
+| :--- | :--- | :--- | :--- |
+| `--config` | No | `config.json` | Path to JSON configuration file |
+| `--profile` | No | `default` (if exists) | Name of the backup profile to run |
+| `--from-date`| No | — | Only sync folders starting from this date (`YYYY-MM-DD`) |
+| `--limit` | No | `0` (no limit) | Max number of local folders to process in a single run |
+| `--phase` | No | `all` | Specific phase to execute: `1`, `2`, `3`, or `all` |
+| `--dir` | No | — | Upload a specific directory directly (bypasses discovery phases) |
 
 ---
 
-## Single Directory Upload (`--dir`)
+## 📂 Single Directory Upload (`--dir`)
 
-Use `--dir` to upload a specific directory directly, bypassing the discovery phases entirely. The tool will:
-
-1. Archive the specified directory into a `.tgz` file in the profile's `tmp` directory
-2. Upload the archive to the profile's `dest` path on Internxt
-3. Delete the temporary archive after a successful upload
-
-This is useful for one-off uploads or when you want to back up a folder that is not part of the regular date-based sync.
+Use `--dir` to upload a specific directory directly, bypassing discovery entirely. 
 
 ```bash
 bcknxt --profile myprofile --dir /path/to/specific/folder
 ```
 
-The folder name is used as the archive base name (e.g. `/path/to/specific/folder` → `folder.tgz`).
+### Execution Flow:
+1. Archives the target directory into a `.tgz` file in your profile's `tmp` path.
+2. Uploads the archive to the profile's `dest` directory on Internxt.
+3. Automatically deletes the temporary archive file on success.
+
+> [!TIP]
+> The folder name is used as the archive name (e.g., `/path/to/specific/my_photos` $\rightarrow$ `my_photos.tgz`). This is great for one-off backups.
 
 ---
 
-## Default Profile
+## 👤 Default Profile
 
-If `--profile` is not specified, the tool will automatically use the `default` profile if one exists in the configuration file. This allows you to run `bcknxt` without any profile flag when a default is defined.
+If you omit the `--profile` flag, the tool will look for a profile named `"default"` in your `config.json`:
 
 ```json
 {
@@ -143,109 +165,119 @@ If `--profile` is not specified, the tool will automatically use the `default` p
 }
 ```
 
-If no `default` profile exists and `--profile` is omitted, the tool exits with an error.
+> [!WARNING]
+> If no `"default"` profile is configured and you do not supply the `--profile` flag, `bcknxt` will exit with an error.
 
 ---
 
-## Phases
+## 🔄 Sync Phases
 
-The tool runs three distinct phases in sequence. Each can be executed independently via `--phase <N>`.
+When running a full synchronization (`--phase all`), the tool runs three sequential phases:
 
 | Phase | Name | Description |
-|---|---|---|
-| **1** | **Discovery** | Determine which date folders are missing remotely and need to be backed up |
-| **2** | **Archive & Upload** | Create `.tgz` archives of missing date folders and upload them to Internxt |
-| **3** | **Verification** | Re-fetch remote contents to confirm every uploaded date is present |
+| :---: | :--- | :--- |
+| **1** | **Discovery** | Checks which local date-folders are missing on the remote Internxt directory. |
+| **2** | **Archive & Upload** | Creates `.tgz` archives of missing folders and uploads them to Internxt. |
+| **3** | **Verification** | Re-scans the remote Internxt directory to verify every uploaded folder exists. |
+
+---
 
 ### Phase 1: Discovery
 
-| Aspect | Definition |
-|---|---|
-| **Purpose** | Determine which date folders need to be backed up |
-| **Inputs** | `source` directory, `dest` remote path, optional `--from-date`, optional `--limit` |
-| **Process** | 1. Scan `source` for `YYYY-MM-DD` folders<br>2. Resolve `dest` path to a remote Internxt folder ID<br>3. Fetch existing remote backup listing<br>4. Compute the set of dates present locally but absent remotely |
-| **Artifacts** | `local_dates.txt`, `remote_dates.txt`, `destination_id.txt`, `missing_dates.txt` |
-| **Status** | `sync_status.json` → phase `"1"`, status `"discovered"` |
+* **Goal**: Detect local backups that have not yet been uploaded.
+* **Process**:
+  1. Scans `source` for sub-directories matching `YYYY-MM-DD`.
+  2. Resolves `dest` to an Internxt remote folder ID.
+  3. Lists existing remote files and parses their backup dates.
+  4. Identifies which dates exist locally but are missing on the remote.
+* **Artifacts**: Writes `local_dates.txt`, `remote_dates.txt`, `destination_id.txt`, and `missing_dates.txt` to the `tmp` folder.
+* **Status**: Updates `sync_status.json` with phase `"1"`, status `"discovered"`.
 
-**Missing date logic:**
-- If `--from-date` is set: sync local dates ≥ that date that are absent remotely
-- If no `--from-date` and no remote backups exist: sync all local dates
-- If no `--from-date` and remote backups exist: sync only local dates *newer* than the latest remote backup
-
-### Phase 2: Archive & Upload
-
-| Aspect | Definition |
-|---|---|
-| **Purpose** | Create compressed archives of missing date folders and upload them to Internxt |
-| **Inputs** | `missing_dates.txt`, `destination_id.txt` (from Phase 1), `source` directory |
-| **Process** | 1. Read missing dates list<br>2. For each date: create `.tgz` archive (Go-native `archive/tar` + `compress/gzip`)<br>3. Upload archive via `internxt upload-file` to the resolved remote folder<br>4. Delete temporary archive on success |
-| **Artifacts** | Temporary `.tgz` files (removed after upload) |
-| **Status** | `sync_status.json` → phase `"2"`, status `"synced"` or `"failed"` |
-
-Each upload retries once after a 5-second wait if it fails. Failed dates are reported in the summary but do not halt processing of remaining items.
-
-### Phase 3: Verification
-
-| Aspect | Definition |
-|---|---|
-| **Purpose** | Confirm every intended backup date exists in the remote folder |
-| **Inputs** | `missing_dates.txt`, `destination_id.txt` (from Phase 1) |
-| **Process** | 1. Re-fetch remote folder contents<br>2. Build set of remote date folders<br>3. Check each date from `missing_dates.txt` against the remote set |
-| **Artifacts** | None (read-only verification) |
-| **Status** | `sync_status.json` → phase `"3"`, status `"verified"` or `"failed"` |
-
-If any dates are missing remotely, the phase returns an error listing the failures and exits with code 1.
+#### Discovery Date Logic:
+* If `--from-date` is set: Syncs local dates $\ge$ that date that are absent remotely.
+* If no `--from-date` and no remote backups exist: Syncs all local dates.
+* If no `--from-date` and remote backups exist: Syncs only local dates *newer* than the latest remote backup date.
 
 ---
 
-## Examples
+### Phase 2: Archive & Upload
+
+* **Goal**: Generate compressed archives and upload them.
+* **Process**:
+  1. Reads `missing_dates.txt` and `destination_id.txt` from Phase 1.
+  2. For each date:
+     * Packs the folder into a `.tgz` archive inside the `tmp` directory.
+     * Uploads the archive to Internxt.
+     * Deletes the temporary archive file upon success.
+* **Artifacts**: Temporary `.tgz` files (cleaned up automatically).
+* **Status**: Updates `sync_status.json` with phase `"2"`, status `"synced"` or `"failed"`.
+
+> [!NOTE]
+> Upload failures are retried once after a 5-second delay. Failed items are reported in the summary but do not halt the synchronization of remaining folders.
+
+---
+
+### Phase 3: Verification
+
+* **Goal**: Ensure the integrity of the upload process.
+* **Process**:
+  1. Re-fetches the remote Internxt directory contents.
+  2. Confirms every date folder listed in `missing_dates.txt` is present on the remote.
+* **Status**: Updates `sync_status.json` with phase `"3"`, status `"verified"` or `"failed"`.
+
+> [!WARNING]
+> If any backup is missing, the phase returns an error detailing the missing items and exits with code `1`.
+
+---
+
+## 💡 Usage Examples
 
 ```bash
-# Full sync of dgxcomfy_p2 profile
+# Perform a full sync of the "dgxcomfy_p2" profile
 bcknxt --profile dgxcomfy_p2
 
-# Sync only from 2026-06-01 onwards
+# Sync only folders from 2026-06-01 onwards
 bcknxt --profile dgxcomfy_p2 --from-date 2026-06-01
 
 # Sync only the first 3 missing folders
 bcknxt --profile dgxcomfy_p2 --limit 3
 
-# Run only discovery
+# Run only discovery (Phase 1)
 bcknxt --profile dgxcomfy_p2 --phase 1
 
-# Run only upload (requires phase 1 artifacts)
+# Run only archive & upload (Phase 2)
 bcknxt --profile dgxcomfy_p2 --phase 2
 
-# Run only verification (requires phase 1+2 artifacts)
+# Run only verification (Phase 3)
 bcknxt --profile dgxcomfy_p2 --phase 3
 
-# Use a custom config path
+# Specify a custom config file path
 bcknxt --config /etc/bcknxt/config.json --profile dgxcomfy_p2
 
-# Upload a specific directory directly (no discovery)
+# Upload a specific directory directly, bypassing discovery
 bcknxt --profile dgxcomfy_p2 --dir /wdblack/ARS/dgxcomfy/2026-06-14
 
-# Use the default profile (no --profile flag needed)
+# Run with the default profile
 bcknxt
 ```
 
 ---
 
-## Building from Source
+## 🛠️ Building from Source
 
-### Makefile targets
+### Makefile Targets
 
 | Target | Description |
-|---|---|
-| `build` | Build for the current platform → `bin/bcknxt` |
-| `build:osx-arm64` | macOS Apple Silicon → `bin/bcknxt-darwin-arm64` |
-| `build:linux-arm64` | Linux ARM64 → `bin/bcknxt-linux-arm64` |
-| `build:linux-amd64` | Linux x86_64 → `bin/bcknxt-linux-amd64` |
-| `build-all` | Build all three cross-compilation targets |
-| `run` | `go run .` with passthrough arguments |
-| `clean` | Remove `bin/` directory |
+| :--- | :--- |
+| `make build` | Builds for the current system architecture $\rightarrow$ `bin/bcknxt` |
+| `make build-osx-arm64` | Cross-compiles for macOS Apple Silicon $\rightarrow$ `bin/bcknxt-darwin-arm64` |
+| `make build-linux-arm64` | Cross-compiles for Linux ARM64 $\rightarrow$ `bin/bcknxt-linux-arm64` |
+| `make build-linux-amd64` | Cross-compiles for Linux x86_64 $\rightarrow$ `bin/bcknxt-linux-amd64` |
+| `make build-all` | Builds all cross-compilation targets |
+| `make run` | Runs `go run .` passing any trailing command arguments |
+| `make clean` | Cleans up the `bin/` output directory |
 
-### Manual cross-compilation
+### Manual Cross-Compilation
 
 ```bash
 GOOS=darwin GOARCH=arm64 go build -o bcknxt-darwin-arm64 .
@@ -255,49 +287,29 @@ GOOS=linux GOARCH=amd64 go build -o bcknxt-linux-amd64 .
 
 ---
 
-## Differences from sync.py
+## 🔍 Troubleshooting
 
-| Feature | sync.py | bcknxt |
-|---|---|---|
-| **Configuration** | Markdown file with `# SOURCE:`, `# DEST:`, `# TMP:` | JSON file with named profiles |
-| **Multiple backups** | No — single config only | Yes — any number of profiles |
-| **Archive creation** | Shells out to `tar -czf` | Go-native `archive/tar` + `compress/gzip` |
-| **JSON parsing** | Regex-based ANSI stripping + JSON extraction | Same approach (stdlib `encoding/json`) |
-| **Output format** | Same timestamped logging | Identical logging style |
-| **Status file** | Same `sync_status.json` format | Identical format |
-| **CLI flags** | `--source`, `--dest`, `--tmp` | `--config`, `--profile` (source/dest/tmp come from config) |
-| **Cross-platform** | Python (requires Python 3) | Standalone binary — no runtime dependency |
-| **Retry logic** | One retry with 5s wait | Same |
+### 🛑 "Not authenticated"
+Ensure your Internxt account is logged in:
+```bash
+internxt login -x
+internxt whoami -x
+```
 
----
+### 📂 "Folder 'X' NOT FOUND in path"
+The remote path defined in the profile's `dest` does not exist or is mistyped. Create the parent folders in Internxt manually or verify the `dest` path.
 
-## Troubleshooting
+### 🧩 "Run phase 1 first"
+Phase 2 and Phase 3 require internal metadata files (`missing_dates.txt` and `destination_id.txt`) created during Phase 1. Run `--phase 1` first or use `--phase all`.
 
-### "Not authenticated"
-
-Run `internxt login -x` and verify with `internxt whoami -x`.
-
-### "Folder 'X' NOT FOUND in path"
-
-The remote path defined in `dest` does not exist or is incomplete. Create the folders manually or verify the path.
-
-### "Run phase 1 first"
-
-Phase 2 and 3 require artifact files (`missing_dates.txt`, `destination_id.txt`) produced by phase 1. Run `--phase 1` first or `--phase all`.
-
-### Archive creation fails
-
-Ensure `source` path exists and contains the expected date folders. The tool uses Go's native archiver — no external `tar` needed.
-
-### Upload fails
-
-Verify Internet connectivity and Internxt authentication. The tool retries once automatically. If it continues failing, inspect the archive in `tmp/` for debugging.
+### 📦 Archive Creation Fails
+Ensure your `source` directory is accessible and contains folders in the format `YYYY-MM-DD`. Also check that you have sufficient disk space in your `tmp` directory.
 
 ---
 
-## Status File Format
+## 📊 Status File Format
 
-Written to `<tmp>/sync_status.json` after each phase:
+A status file is written to `<tmp>/sync_status.json` at the end of each phase. This makes it easy to monitor sync runs programmatically:
 
 ```json
 {
