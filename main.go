@@ -16,7 +16,7 @@ func main() {
 	dirPath := flag.String("dir", "", "Upload a specific directory directly (bypasses discovery)")
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
-		fmt.Fprintf(out, "\n%sDGX Synchronization (Go) — Usage Instructions%s\n\n", colorBold+colorCyan, colorReset)
+		fmt.Fprintf(out, "\n%sbcknxt Synchronization (Go) — Usage Instructions%s\n\n", colorBold+colorCyan, colorReset)
 		fmt.Fprintf(out, "%sUsage:%s\n", colorBold, colorReset)
 		fmt.Fprintf(out, "  %s%s%s [options]\n", colorGreen, os.Args[0], colorReset)
 		fmt.Fprintf(out, "  %s%s%s --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--phase 1|2|3|all]\n", colorGreen, os.Args[0], colorReset)
@@ -61,7 +61,7 @@ func main() {
 	}
 
 	logHeader(
-		"DGX Synchronization (Go)",
+		"bcknxt Synchronization (Go)",
 		fmt.Sprintf("Profile: %s", profile),
 		fmt.Sprintf("Started: %s", timeNow()),
 	)
