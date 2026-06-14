@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "default": {
+      "source": "/aa/somedir/subpath",
+      "dest": "bck/default",
+      "tmp": "/tmp"
+    },
+    "example_backup": {
+      "source": "/data/my_project",
+      "dest": "bck/my_project_backup",
+      "tmp": "/tmp"
+    }
+  }
+}
