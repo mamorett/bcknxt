@@ -16,19 +16,29 @@ func main() {
 	dirPath := flag.String("dir", "", "Upload a specific directory directly (bypasses discovery)")
 	flag.Usage = func() {
 		out := flag.CommandLine.Output()
-		fmt.Fprintf(out, "Usage of %s:\n", os.Args[0])
+		fmt.Fprintf(out, "\n%sDGX Synchronization (Go) — Usage Instructions%s\n\n", colorBold+colorCyan, colorReset)
+		fmt.Fprintf(out, "%sUsage:%s\n", colorBold, colorReset)
+		fmt.Fprintf(out, "  %s%s%s [options]\n", colorGreen, os.Args[0], colorReset)
+		fmt.Fprintf(out, "  %s%s%s --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--phase 1|2|3|all]\n", colorGreen, os.Args[0], colorReset)
+		fmt.Fprintf(out, "  %s%s%s --profile <name> --dir <path>\n\n", colorGreen, os.Args[0], colorReset)
+
+		fmt.Fprintf(out, "%sOptions:%s\n", colorBold, colorReset)
 		flag.VisitAll(func(f *flag.Flag) {
-			fmt.Fprintf(out, "  --%s %s\n", f.Name, f.Usage)
+			def := ""
 			if f.DefValue != "" {
-				fmt.Fprintf(out, "    (default %q)\n", f.DefValue)
+				def = fmt.Sprintf(" %s(default %q)%s", colorGray, f.DefValue, colorReset)
 			}
+			fmt.Fprintf(out, "  %s--%-14s%s %s%s\n", colorYellow, f.Name, colorReset, f.Usage, def)
 		})
+		fmt.Fprintf(out, "\n")
 	}
 	flag.Parse()
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%sERROR: %v%s\n", colorRed+colorBold, err, colorReset)
+		flag.Usage()
+		fmt.Fprintf(os.Stderr, "%sTIP: Create a '%s' file in this directory or specify one via --config.%s\n\n", colorYellow, *configPath, colorReset)
 		os.Exit(1)
 	}
 
@@ -38,7 +48,7 @@ func main() {
 			profile = "default"
 			logPrint("No --profile specified, using 'default' profile")
 		} else {
-			fmt.Fprintf(os.Stderr, "ERROR: --profile is required (or add a 'default' profile to config)\n")
+			fmt.Fprintf(os.Stderr, "%sERROR: --profile is required (or add a 'default' profile to config)%s\n", colorRed+colorBold, colorReset)
 			flag.Usage()
 			os.Exit(1)
 		}
@@ -46,7 +56,7 @@ func main() {
 
 	prof, err := getProfile(cfg, profile)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+		fmt.Fprintf(os.Stderr, "%sERROR: %v%s\n", colorRed+colorBold, err, colorReset)
 		os.Exit(1)
 	}
 
