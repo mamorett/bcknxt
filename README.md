@@ -92,9 +92,12 @@ Create a `config.json` file in your working directory. You can define multiple i
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
-| `source` | `string` | Local directory containing date-based (`YYYY-MM-DD`) sub-folders. |
+| `source` | `string` | Local directory containing date/time-formatted (`YYYY-MM-DD`) sub-folders. |
 | `dest` | `string` | Remote path on Internxt Drive (folders separated by `/`). |
 | `tmp` | `string` | Temporary directory used for staging archive files and tracking `sync_status.json`. |
+
+> [!IMPORTANT]
+> **Sub-folder Naming Convention**: The automatic sync mechanism specifically matches and processes local sub-folders named with the `YYYY-MM-DD` date/time format (e.g., `2026-06-15`). Any sub-folders or files in the `source` directory that do not match this exact naming pattern are ignored. If you wish to back up a folder with an arbitrary name, use the `--dir` option instead.
 
 > [!NOTE]
 > All fields (`source`, `dest`, `tmp`) are **required** for each profile.
