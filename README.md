@@ -105,8 +105,8 @@ Create a `config.json` file in your working directory. You can define multiple i
 ## 💻 CLI Usage
 
 ```bash
-bcknxt --config <path> --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--phase 1|2|3|all]
-bcknxt --config <path> --profile <name> --dir <path>
+bcknxt --config <path> --profile <name> [--from-date YYYY-MM-DD] [--limit N] [--dry-run]
+bcknxt --config <path> --profile <name> --dir <path> [--dry-run]
 ```
 
 ### Flags
@@ -117,7 +117,7 @@ bcknxt --config <path> --profile <name> --dir <path>
 | `--profile` | No | `default` (if exists) | Name of the backup profile to run |
 | `--from-date`| No | — | Only sync folders starting from this date (`YYYY-MM-DD`) |
 | `--limit` | No | `0` (no limit) | Max number of local folders to process in a single run |
-| `--phase` | No | `all` | Specific phase to execute: `1`, `2`, `3`, or `all` |
+| `--dry-run` | No | `false` | Show what would be synced without executing the sync |
 | `--dir` | No | — | Upload a specific directory directly (bypasses discovery phases) |
 
 ---
@@ -163,7 +163,7 @@ If you omit the `--profile` flag, the tool will look for a profile named `"defau
 
 ## 🔄 Sync Phases
 
-When running a full synchronization (`--phase all`), the tool runs three sequential phases:
+By default, the tool runs three sequential phases (if `--dry-run` is active, it stops after Phase 1):
 
 | Phase | Name | Description |
 | :---: | :--- | :--- |
@@ -233,14 +233,8 @@ bcknxt --profile example_profile --from-date 2026-06-01
 # Sync only the first 3 missing folders
 bcknxt --profile example_profile --limit 3
 
-# Run only discovery (Phase 1)
-bcknxt --profile example_profile --phase 1
-
-# Run only archive & upload (Phase 2)
-bcknxt --profile example_profile --phase 2
-
-# Run only verification (Phase 3)
-bcknxt --profile example_profile --phase 3
+# Perform a dry run (checks what needs to be synced without uploading)
+bcknxt --profile example_profile --dry-run
 
 # Specify a custom config file path
 bcknxt --config /etc/bcknxt/config.json --profile example_profile
@@ -289,9 +283,6 @@ internxt whoami -x
 
 ### 📂 "Folder 'X' NOT FOUND in path"
 The remote path defined in the profile's `dest` does not exist or is mistyped. Create the parent folders in Internxt manually or verify the `dest` path.
-
-### 🧩 "Run phase 1 first"
-Phase 2 and Phase 3 require internal metadata files (`missing_dates.txt` and `destination_id.txt`) created during Phase 1. Run `--phase 1` first or use `--phase all`.
 
 ### 📦 Archive Creation Fails
 Ensure your `source` directory is accessible and contains folders in the format `YYYY-MM-DD`. Also check that you have sufficient disk space in your `tmp` directory.
