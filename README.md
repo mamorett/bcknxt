@@ -1,5 +1,5 @@
 <div align="center">
-<img src="logo.png" alt="bcknxt logo" width="220" height="220">
+<img src="logo.png" alt="bcknxt logo" width="400" height="400">
 </div>
 
 # 📂 bcknxt — Internxt Backup Synchronization Tool
@@ -16,21 +16,32 @@ With support for **profiles** in a single configuration file, you can manage mul
 
 ## 🧭 Table of Contents
 
-- [🚀 Key Features](#-key-features)
-- [📋 Requirements](#-requirements)
-- [📦 Installation](#-installation)
-- [⚙️ Configuration](#%EF%B8%8F-configuration)
-- [💻 CLI Usage](#-cli-usage)
-- [📂 Single Directory Upload (`--dir`)](#-single-directory-upload-dir)
-- [👤 Default Profile](#-default-profile)
-- [🔄 Sync Phases](#-sync-phases)
-  - [Phase 1: Discovery](#phase-1-discovery)
-  - [Phase 2: Archive & Upload](#phase-2-archive--upload)
-  - [Phase 3: Verification](#phase-3-verification)
-- [💡 Usage Examples](#-usage-examples)
-- [🛠️ Building from Source](#%EF%B8%8F-building-from-source)
-- [🔍 Troubleshooting](#-troubleshooting)
-- [📊 Status File Format](#-status-file-format)
+- [� bcknxt — Internxt Backup Synchronization Tool](#-bcknxt--internxt-backup-synchronization-tool)
+  - [🧭 Table of Contents](#-table-of-contents)
+  - [🚀 Key Features](#-key-features)
+  - [📋 Requirements](#-requirements)
+  - [📦 Installation](#-installation)
+  - [⚙️ Configuration](#️-configuration)
+    - [Profile Fields](#profile-fields)
+  - [💻 CLI Usage](#-cli-usage)
+    - [Flags](#flags)
+  - [📂 Single Directory Upload (`--dir`)](#-single-directory-upload---dir)
+    - [Execution Flow:](#execution-flow)
+  - [👤 Default Profile](#-default-profile)
+  - [🔄 Sync Phases](#-sync-phases)
+    - [Phase 1: Discovery](#phase-1-discovery)
+      - [Discovery Date Logic:](#discovery-date-logic)
+    - [Phase 2: Archive \& Upload](#phase-2-archive--upload)
+    - [Phase 3: Verification](#phase-3-verification)
+  - [💡 Usage Examples](#-usage-examples)
+  - [🛠️ Building from Source](#️-building-from-source)
+    - [Makefile Targets](#makefile-targets)
+    - [Manual Cross-Compilation](#manual-cross-compilation)
+  - [🔍 Troubleshooting](#-troubleshooting)
+    - [🛑 "Not authenticated"](#-not-authenticated)
+    - [📂 "Folder 'X' NOT FOUND in path"](#-folder-x-not-found-in-path)
+    - [📦 Archive Creation Fails](#-archive-creation-fails)
+  - [📊 Status File Format](#-status-file-format)
 
 ---
 
