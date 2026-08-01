@@ -1,3 +1,7 @@
+<div align="center">
+<img src="logo.png" alt="bcknxt logo" width="220" height="220">
+</div>
+
 # 📂 bcknxt — Internxt Backup Synchronization Tool
 
 [![Go Version](https://img.shields.io/badge/Go-%E2%89%A5%201.21-00ADD8?style=for-the-badge&logo=go)](https://golang.org)

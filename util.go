@@ -8,6 +8,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"bcknxt/internal/progress"
 )
 
 var ansiRegexp = regexp.MustCompile(`\x1B[@-Z\\-_]|\x1B\[[0-?]*[ -/]*[@-~]`)
@@ -49,15 +51,24 @@ const (
 )
 
 func logPrint(msg string) {
-	fmt.Printf("%s[%s]%s %s\n", colorGray, time.Now().Format("15:04:05"), colorReset, msg)
+	str := fmt.Sprintf("%s[%s]%s %s", colorGray, time.Now().Format("15:04:05"), colorReset, msg)
+	if !progress.Log(str) {
+		fmt.Println(str)
+	}
 }
 
 func infoPrint(msg string) {
-	fmt.Printf("  %s%s%s\n", colorGray, msg, colorReset)
+	str := fmt.Sprintf("  %s%s%s", colorGray, msg, colorReset)
+	if !progress.Log(str) {
+		fmt.Println(str)
+	}
 }
 
 func detailPrint(msg string) {
-	fmt.Printf("    %s%s%s\n", colorGray, msg, colorReset)
+	str := fmt.Sprintf("    %s%s%s", colorGray, msg, colorReset)
+	if !progress.Log(str) {
+		fmt.Println(str)
+	}
 }
 
 func logDivider() {
