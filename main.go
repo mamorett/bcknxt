@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"bcknxt/internal/cli"
 )
 
 func main() {
@@ -61,6 +63,7 @@ func main() {
 		os.Exit(1)
 	}
 
+	cli.PrintLogo()
 	logHeader(
 		"bcknxt Synchronization (Go)",
 		fmt.Sprintf("Profile: %s", profile),
