@@ -155,6 +155,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 			infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
 			detailPrint("Starting archive creation...")
 
+			pb.Describe(fmt.Sprintf("[%d/%d] Archiving %s", idx+1, total, date))
 			logPrint(fmt.Sprintf("  %s[1/3] Creating tar archive...%s", colorYellow, colorReset))
 			detailPrint(fmt.Sprintf("Archiving %s from %s", date, sourceDir))
 			if err := createTgz(archivePath, sourceDir, date); err != nil {
@@ -168,12 +169,13 @@ func runPhase2(sourceDir, tmpDir string) error {
 			writeStatus("2", "processing",
 				fmt.Sprintf("[%d/%d] %s: Uploading", idx+1, total, date),
 				map[string]interface{}{
-					"total_folders":    total,
-					"current_folder":   date,
+					"total_folders":     total,
+					"current_folder":    date,
 					"processed_folders": idx,
-					"current_size":     formatSize(sz),
+					"current_size":      formatSize(sz),
 				}, tmpDir)
 
+			pb.Describe(fmt.Sprintf("[%d/%d] Uploading %s", idx+1, total, date))
 			logPrint(fmt.Sprintf("  %s[2/3] Uploading to Internxt...%s", colorYellow, colorReset))
 			detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
 
@@ -199,6 +201,7 @@ func runPhase2(sourceDir, tmpDir string) error {
 				return fmt.Errorf("upload failed after all retries: %w", uploadErr)
 			}
 
+			pb.Describe(fmt.Sprintf("[%d/%d] Cleaning up %s", idx+1, total, date))
 			logPrint(fmt.Sprintf("  %s[3/3] Cleaning up temporary archive...%s", colorYellow, colorReset))
 			detailPrint("Removing: " + archivePath)
 			os.Remove(archivePath)
@@ -423,13 +426,19 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string, dryRun bool) error {
 		writeString(destIDPath, destID)
 	}
 
+	pb := progress.NewProgressBar(1, "Uploading "+folderName)
+	pb.SetCurrentFile(folderName, dirPath)
+	defer pb.Finish()
+
 	sz := folderSize(dirPath)
 	infoPrint(fmt.Sprintf("Folder size: %s (%d bytes)", formatSize(sz), sz))
 	detailPrint("Starting archive creation...")
 
+	pb.Describe("Archiving " + folderName)
 	logPrint(fmt.Sprintf("  %s[1/2] Creating tar archive...%s", colorYellow, colorReset))
 	detailPrint(fmt.Sprintf("Archiving %s", dirPath))
 	if err := createTgz(archivePath, sourceDir, folderName); err != nil {
+		pb.UpdateError(folderName, dirPath, err.Error())
 		return fmt.Errorf("tar failed: %w", err)
 	}
 	detailPrint("Archive created successfully")
@@ -440,6 +449,7 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string, dryRun bool) error {
 	writeStatus("2", "processing", fmt.Sprintf("Uploading %s", folderName),
 		map[string]interface{}{"dir": folderName, "size": formatSize(sz)}, tmpDir)
 
+	pb.Describe("Uploading " + folderName)
 	logPrint(fmt.Sprintf("  %s[2/2] Uploading to Internxt...%s", colorYellow, colorReset))
 	detailPrint(fmt.Sprintf("Destination folder ID: %s", destID))
 
@@ -462,14 +472,17 @@ func runSingleDirUpload(dirPath, destPath, tmpDir string, dryRun bool) error {
 		}
 	}
 	if uploadErr != nil {
+		pb.UpdateError(folderName, dirPath, uploadErr.Error())
 		return fmt.Errorf("upload failed after all retries: %w", uploadErr)
 	}
 
+	pb.Describe("Cleaning up " + folderName)
 	logPrint(fmt.Sprintf("  %sCleaning up temporary archive...%s", colorYellow, colorReset))
 	detailPrint("Removing: " + archivePath)
 	os.Remove(archivePath)
 	detailPrint("Cleanup complete")
 
+	pb.UpdateCopy(folderName, dirPath)
 	writeStatus("2", "completed", fmt.Sprintf("Uploaded %s", folderName),
 		map[string]interface{}{"dir": folderName}, tmpDir)
 

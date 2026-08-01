@@ -18,6 +18,7 @@ func main() {
 	dryRun := flag.Bool("dry-run", false, "Show what would be synced without executing the sync")
 	dirPath := flag.String("dir", "", "Upload a specific directory directly (bypasses discovery)")
 	flag.Usage = func() {
+		cli.PrintLogo()
 		out := flag.CommandLine.Output()
 		fmt.Fprintf(out, "\n%sbcknxt Synchronization (Go) — Usage Instructions%s\n\n", colorBold+colorCyan, colorReset)
 		fmt.Fprintf(out, "%sUsage:%s\n", colorBold, colorReset)
@@ -36,6 +37,8 @@ func main() {
 		fmt.Fprintf(out, "\n")
 	}
 	flag.Parse()
+
+	cli.PrintLogo()
 
 	cfg, err := loadConfig(*configPath)
 	if err != nil {
@@ -63,7 +66,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	cli.PrintLogo()
 	logHeader(
 		"bcknxt Synchronization (Go)",
 		fmt.Sprintf("Profile: %s", profile),

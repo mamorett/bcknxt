@@ -10,6 +10,32 @@ import (
 	"golang.org/x/term"
 )
 
+var (
+	activePB   *ProgressBar
+	activePBMu sync.Mutex
+)
+
+func SetActive(pb *ProgressBar) {
+	activePBMu.Lock()
+	defer activePBMu.Unlock()
+	activePB = pb
+}
+
+func Log(msg string) bool {
+	activePBMu.Lock()
+	pb := activePB
+	activePBMu.Unlock()
+	if pb != nil {
+		pb.LogAbove(msg)
+		return true
+	}
+	return false
+}
+
+// ProgressBar wrapper for terminal progress with 3-line display:
+// Line 1: Progress bar with percentage, file count, speed, ETA
+// Line 2: Current file being copied with its source path
+// Line 3: Status with copied files, remaining files, and error count
 type ProgressBar struct {
 	total            int
 	current          int
@@ -25,6 +51,7 @@ type ProgressBar struct {
 	mu               sync.Mutex
 }
 
+// NewProgressBar creates a new progress bar
 func NewProgressBar(total int, description string) *ProgressBar {
 	isTerm := term.IsTerminal(int(os.Stdout.Fd()))
 	pb := &ProgressBar{
@@ -35,6 +62,7 @@ func NewProgressBar(total int, description string) *ProgressBar {
 		throttleDuration: 65 * time.Millisecond,
 		isTerminal:       isTerm,
 	}
+	SetActive(pb)
 	pb.drawNoLock()
 	return pb
 }
@@ -42,7 +70,7 @@ func NewProgressBar(total int, description string) *ProgressBar {
 func getTerminalWidth() int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil || width <= 0 {
-		return 80
+		return 80 // fallback
 	}
 	return width
 }
@@ -79,6 +107,7 @@ func (pb *ProgressBar) drawNoLock() {
 	}
 
 	if !pb.isTerminal {
+		// For non-terminal, log at most once every 5 seconds or on completion
 		if pb.current == pb.total || time.Since(pb.lastRedraw) >= 5*time.Second {
 			pct := 0
 			if pb.total > 0 {
@@ -102,6 +131,7 @@ func (pb *ProgressBar) drawNoLock() {
 
 	termWidth := getTerminalWidth()
 
+	// --- Line 1: Progress Bar ---
 	pct := 0
 	if pb.total > 0 {
 		pct = int(float64(pb.current) * 100 / float64(pb.total))
@@ -210,6 +240,7 @@ func (pb *ProgressBar) drawNoLock() {
 		line1 += timeStr
 	}
 
+	// --- Line 2: Current File being copied with its source path ---
 	maxLineLen := termWidth - 4
 	if maxLineLen < 20 {
 		maxLineLen = 20
@@ -235,6 +266,7 @@ func (pb *ProgressBar) drawNoLock() {
 	}
 	line2 := "\033[36m" + line2Prefix + "\033[0m\033[37m" + truncatedSrc + "\033[0m"
 
+	// --- Line 3: Status (copied, remaining, errors) ---
 	errColor := "\033[32m"
 	if pb.errors > 0 {
 		errColor = "\033[31m"
@@ -242,10 +274,12 @@ func (pb *ProgressBar) drawNoLock() {
 	line3 := fmt.Sprintf("\033[1mStatus:\033[0m \033[32m%d copied\033[0m | \033[33m%d remaining\033[0m | %s%d errors\033[0m",
 		pb.copied, remaining, errColor, pb.errors)
 
+	// Redraw 3 lines: clear line 1, print line 1 \n, clear line 2, print line 2 \n, clear line 3, print line 3, move cursor UP 2 lines
 	fmt.Printf("\r\033[2K%s\n\033[2K%s\n\033[2K%s\033[2A\r", line1, line2, line3)
 	pb.lastRedraw = time.Now()
 }
 
+// UpdateCopy records a successfully copied file with its source path and increments progress
 func (pb *ProgressBar) UpdateCopy(relPath, srcPath string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -258,6 +292,7 @@ func (pb *ProgressBar) UpdateCopy(relPath, srcPath string) {
 	}
 }
 
+// UpdateError records an error during copy
 func (pb *ProgressBar) UpdateError(relPath, srcPath string, errStr string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -274,6 +309,7 @@ func (pb *ProgressBar) UpdateError(relPath, srcPath string, errStr string) {
 	}
 }
 
+// SetCurrentFile sets current file and source path without incrementing counters
 func (pb *ProgressBar) SetCurrentFile(relPath, srcPath string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -284,20 +320,23 @@ func (pb *ProgressBar) SetCurrentFile(relPath, srcPath string) {
 	}
 }
 
+// LogAbove prints a message above the active progress display without corrupting lines
 func (pb *ProgressBar) LogAbove(msg string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
 
 	if !pb.isTerminal {
-		fmt.Fprintln(os.Stderr, msg)
+		fmt.Fprintln(os.Stdout, msg)
 		return
 	}
 
+	// Clear the 3 progress lines, print msg above, and redraw
 	fmt.Print("\r\033[2K\n\033[2K\n\033[2K\033[2A\r")
-	fmt.Fprintln(os.Stderr, msg)
+	fmt.Fprintln(os.Stdout, msg)
 	pb.drawNoLock()
 }
 
+// UpdateWithStatus updates description and increments progress
 func (pb *ProgressBar) UpdateWithStatus(status string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -309,6 +348,7 @@ func (pb *ProgressBar) UpdateWithStatus(status string) {
 	pb.drawNoLock()
 }
 
+// Increment just increments progress
 func (pb *ProgressBar) Increment() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -319,6 +359,7 @@ func (pb *ProgressBar) Increment() {
 	}
 }
 
+// IncrementWithStatus updates description and increments progress
 func (pb *ProgressBar) IncrementWithStatus(status string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -330,6 +371,7 @@ func (pb *ProgressBar) IncrementWithStatus(status string) {
 	}
 }
 
+// Describe sets description without incrementing
 func (pb *ProgressBar) Describe(desc string) {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
@@ -339,9 +381,12 @@ func (pb *ProgressBar) Describe(desc string) {
 	}
 }
 
+// Finish finishes the progress bar display
 func (pb *ProgressBar) Finish() {
 	pb.mu.Lock()
 	defer pb.mu.Unlock()
+
+	SetActive(nil)
 
 	remaining := pb.total - pb.current
 	if remaining < 0 {

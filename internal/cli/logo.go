@@ -14,12 +14,14 @@ import (
 	"strings"
 
 	"github.com/blacktop/go-termimg"
-	"golang.org/x/term"
 )
 
+// Embedded PNG logo binary bytes
+//
 //go:embed logo.png
 var logoBytes []byte
 
+// DetectBestProtocol detects the optimal terminal graphics protocol based on environment and OS.
 func DetectBestProtocol() termimg.Protocol {
 	protocol := termimg.DetectProtocol()
 	if protocol != termimg.Unsupported {
@@ -56,10 +58,12 @@ func DetectBestProtocol() termimg.Protocol {
 	return termimg.Halfblocks
 }
 
+// PrintITerm2PNG renders the logo using iTerm2 OSC 1337 with PNG encoding to preserve alpha transparency to os.Stdout.
 func PrintITerm2PNG(img image.Image, cellsWidth, cellsHeight int) error {
 	return PrintITerm2PNGTo(os.Stdout, img, cellsWidth, cellsHeight)
 }
 
+// PrintITerm2PNGTo renders the logo using iTerm2 OSC 1337 with PNG encoding to preserve alpha transparency to w.
 func PrintITerm2PNGTo(w io.Writer, img image.Image, cellsWidth, cellsHeight int) error {
 	if w == nil {
 		w = os.Stdout
@@ -77,8 +81,10 @@ func PrintITerm2PNGTo(w io.Writer, img image.Image, cellsWidth, cellsHeight int)
 		}
 	}
 
+	// Resize in memory keeping NRGBA/RGBA alpha channel
 	resized := termimg.FastResize(img, targetW, targetH)
 
+	// Encode to PNG (preserves transparency unlike JPEG)
 	var buf bytes.Buffer
 	if err := png.Encode(&buf, resized); err != nil {
 		return err
@@ -89,14 +95,17 @@ func PrintITerm2PNGTo(w io.Writer, img image.Image, cellsWidth, cellsHeight int)
 	return nil
 }
 
+// PrintTransparentHalfblocks renders a 24-bit halfblock fallback image while maintaining transparent backgrounds to os.Stdout.
 func PrintTransparentHalfblocks(img image.Image, width, height int) {
 	PrintTransparentHalfblocksTo(os.Stdout, img, width, height)
 }
 
+// PrintTransparentHalfblocksTo renders a 24-bit halfblock fallback image while maintaining transparent backgrounds to w.
 func PrintTransparentHalfblocksTo(w io.Writer, img image.Image, width, height int) {
 	if w == nil {
 		w = os.Stdout
 	}
+	// 2 vertical pixels per character cell
 	resized := termimg.FastResize(img, uint(width), uint(height*2))
 	bounds := resized.Bounds()
 
@@ -117,12 +126,16 @@ func PrintTransparentHalfblocksTo(w io.Writer, img image.Image, width, height in
 			botOpaque := ba >= 32768
 
 			if !topOpaque && !botOpaque {
+				// Both sub-pixels transparent -> Reset background & output space
 				sb.WriteString("\x1b[0m ")
 			} else if topOpaque && !botOpaque {
+				// Top pixel opaque, bottom transparent -> ▀ with reset background
 				sb.WriteString(fmt.Sprintf("\x1b[0;38;2;%d;%d;%dm▀", tr>>8, tg>>8, tb>>8))
 			} else if !topOpaque && botOpaque {
+				// Top pixel transparent, bottom opaque -> ▄ with reset background
 				sb.WriteString(fmt.Sprintf("\x1b[0;38;2;%d;%d;%dm▄", br>>8, bg>>8, bb>>8))
 			} else {
+				// Both sub-pixels opaque -> ▀ with foreground top, background bottom
 				sb.WriteString(fmt.Sprintf("\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm▀", tr>>8, tg>>8, tb>>8, br>>8, bg>>8, bb>>8))
 			}
 		}
@@ -132,23 +145,24 @@ func PrintTransparentHalfblocksTo(w io.Writer, img image.Image, width, height in
 	fmt.Fprint(w, sb.String())
 }
 
+// PrintLogo main entrypoint for printing terminal logo cleanly to os.Stdout.
 func PrintLogo() {
 	printLogo(os.Stdout)
 }
 
+// printLogo prints the embedded logo.png as truecolor ANSI blocks/graphics protocol
+// if the output writer is a terminal.
 func printLogo(w io.Writer) {
 	if w == nil {
 		w = os.Stdout
 	}
-	if !term.IsTerminal(int(w.(interface{ Fd() uintptr }).Fd())) {
-		return
-	}
 
-	protocol := DetectBestProtocol()
 	srcImg, _, err := image.Decode(bytes.NewReader(logoBytes))
 	if err != nil {
 		return
 	}
+
+	protocol := DetectBestProtocol()
 
 	switch protocol {
 	case termimg.ITerm2:
@@ -166,5 +180,6 @@ func printLogo(w io.Writer) {
 		}
 	}
 
+	// Fallback to alpha-preserving unicode halfblocks
 	PrintTransparentHalfblocksTo(w, srcImg, 50, 25)
 }
